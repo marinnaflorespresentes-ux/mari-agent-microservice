@@ -1,0 +1,318 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot-inbound",
+        "options": {}
+      },
+      "name": "Webhook Chatwoot (WhatsApp)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "chatwoot-webhook-mari"
+    },
+    {
+      "parameters": {
+        "value": "={{$json.body.conversation.id}}",
+        "mode": "lock",
+        "options": {}
+      },
+      "name": "Fila por Conversa (Lock)",
+      "type": "n8n-nodes-base.lock",
+      "typeVersion": 1,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const message = $json.body.message;
+const conversation = $json.body.conversation;
+const sender = $json.body.sender;
+
+// 1. Bloqueio de Spam: Ignorar mensagens de sistema ou de bots
+if (message.sender_type !== 'user' || message.content_type !== 'incoming') {
+    return [];
+}
+
+// 2. Bloqueio de Spam: Filtro básico por conteúdo (ex: links suspeitos)
+if (message.content && message.content.toLowerCase().includes('http')) {
+    // Aqui você pode adicionar uma lógica mais robusta de spam
+    // Por enquanto, apenas ignora
+    return [];
+}
+
+// 3. Extração de Mídia (Áudio/Imagem)
+let attachments = [];
+if (message.attachments && message.attachments.length > 0) {
+    attachments = message.attachments.map(att => ({
+        type: att.file_type.includes('image') ? 'image' : (att.file_type.includes('audio') ? 'audio' : 'other'),
+        url: att.data_url
+    }));
+}
+
+// 4. Mensagem de Saudação (Simulação de primeiro contato)
+let content = message.content;
+if (conversation.messages.length <= 2) { // Assumindo que a primeira mensagem é a do usuário
+    content = `Olá! Sou a Mari, sua assistente virtual. Como posso te ajudar hoje? (Mensagem original: ${message.content})`;
+}
+
+// 5. Estrutura de Saída para o Microservice
+return [{
+    json: {
+        conversation_id: conversation.id,
+        message_id: message.id,
+        content: message.content,
+        sender_type: message.sender_type,
+        attachments: attachments,
+        // Adiciona o status do carrinho (simulado) para o microservice
+        cart_status: {
+            total: 0.00,
+            items: 0
+        }
+    }
+}];",
+        "options": {}
+      },
+      "name": "Preparar Dados e Filtrar Spam",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MICROSERVICE_URL}}/api/process-message",
+        "body": "={{JSON.stringify($json)}}",
+        "sendOnlySet": true,
+        "options": {
+          "fullResponse": true,
+          "responseFormat": "json"
+        }
+      },
+      "name": "Microservice Mari Agent (IA, Woocommerce, PIX)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const microserviceResponse = $json.data;
+
+// 1. Delay de Digitação (Simulação)
+// Envia o status 'digitando' antes de enviar a mensagem real
+// Isso é feito com um nó de Chatwoot separado (não implementado aqui para simplificar o JSON)
+// O nó 'Delay' a seguir simula o tempo de digitação.
+
+// 2. Follow-up (Simulação)
+// Se a resposta for um PIX, você pode agendar um follow-up
+if (microserviceResponse.action === 'reply' && microserviceResponse.response_text.includes('PIX gerado')) {
+    // Aqui você adicionaria um nó 'Schedule' ou 'Wait' para agendar o follow-up
+    // Exemplo: n8n.schedule.add({ ... })
+}
+
+return [{
+    json: {
+        conversation_id: $json.conversation_id,
+        action: microserviceResponse.action,
+        response_text: microserviceResponse.response_text,
+        handoff_required: microserviceResponse.handoff_required
+    }
+}];",
+        "options": {}
+      },
+      "name": "Tratamento de Resposta e Follow-up",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "time": 1,
+        "unit": "seconds"
+      },
+      "name": "Delay de Digitação (UX)",
+      "type": "n8n-nodes-base.delay",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAMessage",
+        "conversationId": "={{$json.conversation_id}}",
+        "message": "={{$json.response_text}}",
+        "options": {}
+      },
+      "name": "Chatwoot: Enviar Resposta (Final)",
+      "type": "n8n-nodes-base.chatwoot",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        200
+      ],
+      "credentials": {
+        "chatwootApi": {
+          "id": "CHATWOOT_CREDENTIAL_ID",
+          "name": "Chatwoot Mari Agent"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toggleStatus",
+        "conversationId": "={{$json.conversation_id}}",
+        "status": "open",
+        "options": {}
+      },
+      "name": "Chatwoot: Abrir Conversa (Handoff)",
+      "type": "n8n-nodes-base.chatwoot",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        400
+      ],
+      "credentials": {
+        "chatwootApi": {
+          "id": "CHATWOOT_CREDENTIAL_ID",
+          "name": "Chatwoot Mari Agent"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": [
+          {
+            "value1": "={{$json.handoff_required}}",
+            "value2": "=true"
+          }
+        ]
+      },
+      "name": "Decisão: Handoff Humano?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{$json.conversation_id}}",
+        "mode": "unlock",
+        "options": {}
+      },
+      "name": "Fila por Conversa (Unlock)",
+      "type": "n8n-nodes-base.lock",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Chatwoot (WhatsApp)": [
+      [
+        {
+          "node": "Fila por Conversa (Lock)",
+          "index": 0
+        }
+      ]
+    ],
+    "Fila por Conversa (Lock)": [
+      [
+        {
+          "node": "Preparar Dados e Filtrar Spam",
+          "index": 0
+        }
+      ]
+    ],
+    "Preparar Dados e Filtrar Spam": [
+      [
+        {
+          "node": "Microservice Mari Agent (IA, Woocommerce, PIX)",
+          "index": 0
+        }
+      ]
+    ],
+    "Microservice Mari Agent (IA, Woocommerce, PIX)": [
+      [
+        {
+          "node": "Tratamento de Resposta e Follow-up",
+          "index": 0
+        }
+      ]
+    ],
+    "Tratamento de Resposta e Follow-up": [
+      [
+        {
+          "node": "Delay de Digitação (UX)",
+          "index": 0
+        }
+      ]
+    ],
+    "Delay de Digitação (UX)": [
+      [
+        {
+          "node": "Decisão: Handoff Humano?",
+          "index": 0
+        }
+      ]
+    ],
+    "Chatwoot: Enviar Resposta (Final)": [
+      [
+        {
+          "node": "Fila por Conversa (Unlock)",
+          "index": 0
+        }
+      ]
+    ],
+    "Chatwoot: Abrir Conversa (Handoff)": [
+      [
+        {
+          "node": "Fila por Conversa (Unlock)",
+          "index": 0
+        }
+      ]
+    ],
+    "Decisão: Handoff Humano?": [
+      [
+        {
+          "node": "Chatwoot: Enviar Resposta (Final)",
+          "index": 0
+        }
+      ],
+      [
+        {
+          "node": "Chatwoot: Abrir Conversa (Handoff)",
+          "index": 0
+        }
+      ]
+    ]
+  },
+  "active": false,
+  "settings": {
+    "saveDataSuccess": true,
+    "saveDataError": true,
+    "timezone": "America/Sao_Paulo"
+  },
+  "id": "mari-agent-final-flow",
+  "name": "Mari Agent - Fluxo Final (WhatsApp/Chatwoot)",
+  "versionId": "final"
+}
