@@ -1,0 +1,137 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot-inbound",
+        "options": {}
+      },
+      "name": "Webhook Chatwoot",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "chatwoot-webhook-mari"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MICROSERVICE_URL}}/api/process-message",
+        "body": "={{JSON.stringify($json)}}",
+        "sendOnlySet": true,
+        "options": {
+          "fullResponse": true,
+          "responseFormat": "json"
+        }
+      },
+      "name": "Microservice Mari Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": [
+          {
+            "value1": "={{$json.handoff_required}}",
+            "value2": "=true"
+          }
+        ]
+      },
+      "name": "Decisão: Handoff Humano?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAMessage",
+        "conversationId": "={{$json.conversation_id}}",
+        "message": "={{$json.response_text}}",
+        "options": {}
+      },
+      "name": "Chatwoot: Enviar Resposta",
+      "type": "n8n-nodes-base.chatwoot",
+      "typeVersion": 1,
+      "position": [
+        960,
+        200
+      ],
+      "credentials": {
+        "chatwootApi": {
+          "id": "CHATWOOT_CREDENTIAL_ID",
+          "name": "Chatwoot Mari Agent"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toggleStatus",
+        "conversationId": "={{$json.conversation_id}}",
+        "status": "open",
+        "options": {}
+      },
+      "name": "Chatwoot: Abrir Conversa (Handoff)",
+      "type": "n8n-nodes-base.chatwoot",
+      "typeVersion": 1,
+      "position": [
+        960,
+        400
+      ],
+      "credentials": {
+        "chatwootApi": {
+          "id": "CHATWOOT_CREDENTIAL_ID",
+          "name": "Chatwoot Mari Agent"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Chatwoot": [
+      [
+        {
+          "node": "Microservice Mari Agent",
+          "index": 0
+        }
+      ]
+    ],
+    "Microservice Mari Agent": [
+      [
+        {
+          "node": "Decisão: Handoff Humano?",
+          "index": 0
+        }
+      ]
+    ],
+    "Decisão: Handoff Humano?": [
+      [
+        {
+          "node": "Chatwoot: Enviar Resposta",
+          "index": 0
+        }
+      ],
+      [
+        {
+          "node": "Chatwoot: Abrir Conversa (Handoff)",
+          "index": 0
+        }
+      ]
+    ]
+  },
+  "active": false,
+  "settings": {
+    "saveDataSuccess": true,
+    "saveDataError": true,
+    "timezone": "America/Sao_Paulo"
+  },
+  "id": "mari-agent-initial-flow",
+  "name": "Mari Agent - Fluxo Inicial",
+  "versionId": "initial"
+}
