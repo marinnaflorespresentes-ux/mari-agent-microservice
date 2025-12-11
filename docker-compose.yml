@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  mari-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mari-agent-microservice
+    restart: always
+    ports:
+      - "3000:3000"
+    # Monta o .env.example como .env para uso local
+    env_file:
+      - .env.example
+    environment:
+      # Sobrescreva variáveis de ambiente aqui, se necessário
+      NODE_ENV: development
+      PORT: 3000
+    # Volume para persistência de logs ou outros dados, se necessário
+    # volumes:
+    #   - ./logs:/usr/src/app/logs
