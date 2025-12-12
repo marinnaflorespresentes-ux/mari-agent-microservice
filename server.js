@@ -471,14 +471,14 @@ app.get('/logs', (req, res) => {
     // Aqui, apenas um placeholder para o conceito.
     res.status(501).json({ message: 'Endpoint de logs não implementado para leitura direta em produção. Use ferramentas de observabilidade.' });
 });
-
-// Inicialização do Servidor
+// Health Check
 app.get('/health', (req, res) => {
     res.status(200).json({
         status: "ok",
         message: "Mari Microservice está rodando! 🚀"
     });
 });
+// Inicialização do Servidor
 app.listen(PORT, () => {
     logger.info(`Servidor Mari Agent rodando na porta ${PORT} em modo ${NODE_ENV}`);
 });
