@@ -1,7 +1,7 @@
 {
   "name": "mari-agent-microservice",
   "version": "1.0.0",
-  "description": "Microserviço da Mari Agent para processamento de mensagens",
+  "description": "Microserviço da Mari Agent para processamento de mensagens e integrações.",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -13,17 +13,21 @@
     "mari-agent",
     "node",
     "express",
-    "openai"
+    "openai",
+    "woocommerce",
+    "mercadopago"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@woocommerce/woocommerce-rest-api": "^1.0.1",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.3.1",
     "helmet": "^7.1.0",
+    "mercadopago": "^2.0.0",
     "openai": "^4.52.0",
     "pino": "^8.21.0",
     "pino-http": "^9.0.0"
