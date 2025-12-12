@@ -389,31 +389,31 @@ app.post('/api/process-message', async (req, res) => {
     const { conversation_id, content, attachments } = req.body;
     
     // Lógica de handoff básica (simulação)
+    app.post('/api/process-message', async (req, res) => {
+    const { conversation_id, content, attachments } = req.body;
+
+    // Variáveis iniciais (declaradas apenas UMA vez)
     let action = 'reply';
     let response_text = content ? `Olá! Recebi sua mensagem: "${content}".` : 'Olá! Recebi sua mensagem.';
     let handoff_required = false;
     let cart_status = { total: 0.00, items: 0 };
 
-    // 5.1. Interpretação de Mídia (Visão e Áudio)
+    // 5.1. Interpretação de Mídia
     const mediaInterpretation = await interpretMedia(attachments);
     let processed_content = content || mediaInterpretation.text;
 
-    // 5.2. Processamento de Linguagem e Intenção (OpenAI)
+    // 5.2. IA interpretando intenção
     const ai_result = await processWithAI(conversation_id, processed_content, mediaInterpretation.text);
-    
-    let action = 'reply';
-    let response_text = ai_result.response_text;
-    let handoff_required = false;
-    let cart_status = { total: 0.00, items: 0 };
 
-    // 5.3. Execução da Lógica de Negócio baseada na Intenção da IA
+    // Atualiza apenas os valores, sem redeclarar
+    response_text = ai_result.response_text;
+
+    // 5.3. Execução da lógica baseada na intenção
     switch (ai_result.intent) {
         case 'add_to_cart':
-            // A IA deve ter extraído o ID do produto e a quantidade
-            const product_id = ai_result.product_id || 123; // ID real do Woocommerce
+            const product_id = ai_result.product_id || 123;
             const quantity = ai_result.quantity || 1;
-            
-            // Lógica de Carrinho Real (Woocommerce)
+
             const cartResult = await updateWoocommerceCart(conversation_id, product_id, quantity);
             response_text = cartResult.response_text;
             cart_status.total = cartResult.total;
@@ -421,33 +421,41 @@ app.post('/api/process-message', async (req, res) => {
             break;
 
         case 'initiate_payment':
-            // Lógica de Pagamento Real (PIX/Cartão)
-            // Assumimos que o carrinho já foi somado e o total está disponível
             const total_amount = cart_status.total || 150.00;
             const payment_method = ai_result.payment_method || 'PIX';
 
             const paymentResult = await initiatePayment(conversation_id, total_amount, payment_method);
-            response_text = paymentResult.response_text + (paymentResult.qr_code_link ? `\nLink do QR Code: ${paymentResult.qr_code_link}` : '');
+            response_text =
+                paymentResult.response_text +
+                (paymentResult.qr_code_link ? `\nLink do QR Code: ${paymentResult.qr_code_link}` : '');
             break;
 
         case 'handoff':
             action = 'handoff';
             handoff_required = true;
-            response_text = 'Entendido. Vou transferir você para um de nossos atendentes. Por favor, aguarde um momento.';
+            response_text = 'Entendido. Vou transferir você para um de nossos atendentes. Só um momentinho 💛';
             break;
 
         case 'error':
-            // A IA já gerou a mensagem de erro
             break;
 
         case 'general_query':
         default:
-            // A IA já gerou a resposta de texto e a recomendação
             break;
     }
 
-    req.log.info({ conversation_id, handoff_required, cart_status, ai_intent: ai_result.intent }, 'Mensagem processada com sucesso com IA.');
+    req.log.info(
+        { conversation_id, handoff_required, cart_status, ai_intent: ai_result.intent },
+        'Mensagem processada com sucesso com IA.'
+    );
 
+    res.json({
+        action,
+        response_text,
+        handoff_required,
+        cart_status
+    });
+});
     // 5.4. Implementação de Delay e Fila de Mensagens (Simulação)
     // O delay e a fila de mensagens são idealmente gerenciados pelo n8n (Webhook Response)
     // ou por um sistema de fila dedicado (ex: Redis/RabbitMQ) para evitar bloquear o microservice.
@@ -464,7 +472,6 @@ app.post('/api/process-message', async (req, res) => {
         cart_status: cart_status
     });
 });
-
 // Endpoint de Logs (Apenas para Dev/Staging e protegido)
 app.get('/logs', (req, res) => {
     // Em produção, isso seria uma chamada a um sistema de agregação de logs (ex: ElasticSearch)
