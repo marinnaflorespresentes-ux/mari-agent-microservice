@@ -473,6 +473,12 @@ app.get('/logs', (req, res) => {
 });
 
 // Inicialização do Servidor
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: "ok",
+        message: "Mari Microservice está rodando! 🚀"
+    });
+});
 app.listen(PORT, () => {
     logger.info(`Servidor Mari Agent rodando na porta ${PORT} em modo ${NODE_ENV}`);
 });
